@@ -82,5 +82,5 @@ python main.py
 
 
 ## 致谢
-感谢仓库：https://github.com/fondoger/buaa-teacher-evaluation的启发。
+感谢仓库：https://github.com/fondoger/buaa-teacher-evaluation 的启发。
 感谢BUAA各位群友的帮助测试。
