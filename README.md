@@ -1,4 +1,4 @@
-# BUAA_TeachingEvaluation_2025Winter
+# BUAA一键多方式综合评教
 
 本项目的用于自动登录BUAA的综合评教系统并提交评教结果。支持多种评教模式，并允许对特定教师进行及格分评教。
 
