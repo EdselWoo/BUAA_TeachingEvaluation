@@ -174,7 +174,7 @@ def auto_evaluate(method, special_teachers):
             print(f"🔸 评教课程: {c['kcmc']} - 老师: {teacher_name} ({method_to_emoji(method)} {method_to_text(method)})")
             evaluate_single_course(c, method, special_teachers)
             time.sleep(1)
-    print('\n🏁 评教任务完成！')
+    print('\n🏁 评教任务完成！ 如果满足了你的需求，欢迎点个star⭐')
 
 def method_to_text(method):
     return {
