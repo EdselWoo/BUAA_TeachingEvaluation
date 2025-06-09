@@ -5,6 +5,7 @@ from getpass import getpass
 from urllib.parse import quote
 from form import fill_form
 import sys
+import argparse
 
 session = requests.Session()
 
@@ -136,7 +137,7 @@ def evaluate_single_course(cinfo, method, special_teachers):
         print(f"🔴 评教过程中出错: {cinfo['kcmc']} - 老师: {teacher_name}")
         sys.exit(1)
 
-def auto_evaluate(method, special_teachers):
+def auto_evaluate(method, special_teachers, delay=1.0):
     task = get_latest_task()
     if task is None:
         print('⚠️ 当前没有可评教的任务。')
@@ -159,7 +160,7 @@ def auto_evaluate(method, special_teachers):
                         continue
                     print(f"🔹 评教课程: {c['kcmc']} - 老师: {teacher_name} (及格评价)")
                     evaluate_single_course(c, 'worst_passing', special_teachers)
-                    time.sleep(1)
+                    time.sleep(delay)
     
     # 然后评教其他教师
     print("\n📈 开始对其他教师进行评教...")
@@ -173,7 +174,7 @@ def auto_evaluate(method, special_teachers):
                 continue
             print(f"🔸 评教课程: {c['kcmc']} - 老师: {teacher_name} ({method_to_emoji(method)} {method_to_text(method)})")
             evaluate_single_course(c, method, special_teachers)
-            time.sleep(1)
+            time.sleep(delay)
     print('\n🏁 评教任务完成！ 如果满足了你的需求，欢迎点个star⭐')
 
 def method_to_text(method):
@@ -190,7 +191,7 @@ def method_to_emoji(method):
         'worst_passing': '⚖️'
     }.get(method, '❓')
 
-def main():
+def main(delay):
     print("🔐 欢迎使用 BUAA 综合评教自动化系统！\n")
     username = input('请输入用户名: ')
     password = getpass('请输入密码: ')
@@ -222,10 +223,14 @@ def main():
         else:
             print("✅ 无需进行特定教师的及格评价。\n")
         
-        auto_evaluate(method, special_teachers)
+        auto_evaluate(method, special_teachers, delay)
     else:
         print('❌ 登录失败！请检查用户名和密码是否正确。')
         sys.exit(1)
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser(description='BUAA evaluation automation')
+    parser.add_argument('--delay', type=float, default=1.0,
+                        help='Time delay between evaluating each course, in seconds')
+    args = parser.parse_args()
+    main(args.delay)
