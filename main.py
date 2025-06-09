@@ -64,25 +64,6 @@ def get_questionnaire_list(task_id):
         print('🔴 获取问卷列表失败，请检查网络连接或API是否变更。')
         return []
 
-def set_evaluating_method(qinfo):
-    try:
-        if qinfo['msid'] in ['1', '2']:
-            url = f'{PJXT_URL}evaluationMethodSix/reviseQuestionnairePattern'
-        elif qinfo['msid'] is None:
-            url = f'{PJXT_URL}evaluationMethodSix/confirmQuestionnairePattern'
-        else:
-            print(f"⚠️ 未知的 msid {qinfo['msid']} 对于 {qinfo['wjmc']}")
-            return
-        form = {
-            'wjid': qinfo['wjid'],
-            'msid': 1,
-            'rwid': qinfo['rwid']
-        }
-        response = session.post(url, json=form)
-        response.raise_for_status()
-    except Exception:
-        print(f"🔴 设置评教方式失败: {qinfo['wjmc']}")
-
 def get_course_list(qid):
     try:
         course_list_url = f'{PJXT_URL}evaluationMethodSix/getRequiredReviewsData?sfyp=0&wjid={qid}&pageNum=1&pageSize=999'
