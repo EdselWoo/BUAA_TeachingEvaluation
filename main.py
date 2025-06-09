@@ -5,6 +5,7 @@ from getpass import getpass
 from urllib.parse import quote
 from form import fill_form
 import sys
+import argparse
 
 session = requests.Session()
 
@@ -18,8 +19,9 @@ def get_token():
         soup = BeautifulSoup(response.text, 'html.parser')
         token = soup.find('input', {'name': 'execution'})['value']
         return token
-    except Exception:
+    except requests.RequestException as e:
         print('🔴 获取登录令牌失败，请检查网络连接或登录页面结构。')
+        print(str(e))
         sys.exit(1)
 
 def login(username, password):
@@ -38,7 +40,9 @@ def login(username, password):
             return True
         else:
             return False
-    except Exception:
+    except requests.RequestException as e:
+        print('🔴 登录时出现网络问题。')
+        print(str(e))
         return False
 
 def get_latest_task():
@@ -50,8 +54,9 @@ def get_latest_task():
         if task_json['result']['total'] == 0:
             return None
         return (task_json['result']['list'][0]['rwid'], task_json['result']['list'][0]['rwmc'])
-    except Exception:
+    except requests.RequestException as e:
         print('🔴 获取最新任务失败，请检查网络连接或API是否变更。')
+        print(str(e))
         sys.exit(1)
 
 def get_questionnaire_list(task_id):
@@ -60,28 +65,10 @@ def get_questionnaire_list(task_id):
         response = session.get(list_url)
         response.raise_for_status()
         return response.json()['result']
-    except Exception:
+    except requests.RequestException as e:
         print('🔴 获取问卷列表失败，请检查网络连接或API是否变更。')
+        print(str(e))
         return []
-
-def set_evaluating_method(qinfo):
-    try:
-        if qinfo['msid'] in ['1', '2']:
-            url = f'{PJXT_URL}evaluationMethodSix/reviseQuestionnairePattern'
-        elif qinfo['msid'] is None:
-            url = f'{PJXT_URL}evaluationMethodSix/confirmQuestionnairePattern'
-        else:
-            print(f"⚠️ 未知的 msid {qinfo['msid']} 对于 {qinfo['wjmc']}")
-            return
-        form = {
-            'wjid': qinfo['wjid'],
-            'msid': 1,
-            'rwid': qinfo['rwid']
-        }
-        response = session.post(url, json=form)
-        response.raise_for_status()
-    except Exception:
-        print(f"🔴 设置评教方式失败: {qinfo['wjmc']}")
 
 def get_course_list(qid):
     try:
@@ -90,8 +77,9 @@ def get_course_list(qid):
         response.raise_for_status()
         course_list_json = response.json()
         return course_list_json.get('result', [])
-    except Exception:
+    except requests.RequestException as e:
         print(f"🔴 获取课程列表失败: {qid}")
+        print(str(e))
         return []
 
 def evaluate_single_course(cinfo, method, special_teachers):
@@ -132,11 +120,12 @@ def evaluate_single_course(cinfo, method, special_teachers):
         else:
             print(f"🔴 评教失败: {cinfo['kcmc']} - 老师: {teacher_name}")
             sys.exit(1)
-    except Exception:
+    except Exception as e:
         print(f"🔴 评教过程中出错: {cinfo['kcmc']} - 老师: {teacher_name}")
+        print(str(e))
         sys.exit(1)
 
-def auto_evaluate(method, special_teachers):
+def auto_evaluate(method, special_teachers, delay=1.0):
     task = get_latest_task()
     if task is None:
         print('⚠️ 当前没有可评教的任务。')
@@ -159,7 +148,7 @@ def auto_evaluate(method, special_teachers):
                         continue
                     print(f"🔹 评教课程: {c['kcmc']} - 老师: {teacher_name} (及格评价)")
                     evaluate_single_course(c, 'worst_passing', special_teachers)
-                    time.sleep(1)
+                    time.sleep(delay)
     
     # 然后评教其他教师
     print("\n📈 开始对其他教师进行评教...")
@@ -173,7 +162,7 @@ def auto_evaluate(method, special_teachers):
                 continue
             print(f"🔸 评教课程: {c['kcmc']} - 老师: {teacher_name} ({method_to_emoji(method)} {method_to_text(method)})")
             evaluate_single_course(c, method, special_teachers)
-            time.sleep(1)
+            time.sleep(delay)
     print('\n🏁 评教任务完成！ 如果满足了你的需求，欢迎点个star⭐')
 
 def method_to_text(method):
@@ -190,7 +179,7 @@ def method_to_emoji(method):
         'worst_passing': '⚖️'
     }.get(method, '❓')
 
-def main():
+def main(delay):
     print("🔐 欢迎使用 BUAA 综合评教自动化系统！\n")
     username = input('请输入用户名: ')
     password = getpass('请输入密码: ')
@@ -222,10 +211,14 @@ def main():
         else:
             print("✅ 无需进行特定教师的及格评价。\n")
         
-        auto_evaluate(method, special_teachers)
+        auto_evaluate(method, special_teachers, delay)
     else:
         print('❌ 登录失败！请检查用户名和密码是否正确。')
         sys.exit(1)
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser(description='BUAA evaluation automation')
+    parser.add_argument('--delay', type=float, default=1.0,
+                        help='Time delay between evaluating each course, in seconds')
+    args = parser.parse_args()
+    main(args.delay)
