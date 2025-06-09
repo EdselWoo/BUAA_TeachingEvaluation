@@ -1,4 +1,5 @@
 import time
+import argparse
 import requests
 from bs4 import BeautifulSoup
 from getpass import getpass
@@ -190,38 +191,58 @@ def method_to_emoji(method):
         'worst_passing': '⚖️'
     }.get(method, '❓')
 
+def parse_args():
+    parser = argparse.ArgumentParser(description='BUAA 综合评教自动化脚本')
+    parser.add_argument('-u', '--username', help='统一认证账号')
+    parser.add_argument('-p', '--password', help='统一认证密码')
+    parser.add_argument('-m', '--mode', choices=['good', 'random', 'worst_passing'],
+                        help='评教模式')
+    parser.add_argument('-t', '--teachers', help='特定及格评价教师列表，逗号分隔')
+    return parser.parse_args()
+
 def main():
+    args = parse_args()
     print("🔐 欢迎使用 BUAA 综合评教自动化系统！\n")
-    username = input('请输入用户名: ')
-    password = getpass('请输入密码: ')
+    username = args.username if args.username else input('请输入用户名: ')
+    password = args.password if args.password else getpass('请输入密码: ')
     print('\n🔄 正在登录...')
     if login(username, password):
         print('✅ 登录成功！\n')
-        print('请选择评教方法:')
-        print('1. 最佳评价 🌟')
-        print('2. 随机评价 🎲')
-        print('3. 最差及格评价 ⚖️')
-        choice = input('请输入选择的数字（默认1）: ').strip()
-        if choice == '2':
-            method = 'random'
-        elif choice == '3':
-            method = 'worst_passing'
+        if args.mode:
+            method = args.mode
         else:
-            method = 'good'
+            print('请选择评教方法:')
+            print('1. 最佳评价 🌟')
+            print('2. 随机评价 🎲')
+            print('3. 最差及格评价 ⚖️')
+            choice = input('请输入选择的数字（默认1）: ').strip()
+            if choice == '2':
+                method = 'random'
+            elif choice == '3':
+                method = 'worst_passing'
+            else:
+                method = 'good'
         print(f'\n您选择的评教方法: {method_to_emoji(method)} {method_to_text(method)}\n')
-        
-        special_input = input('🎯 是否有特定老师需要及格评价？（y/n）: ').strip().lower()
-        special_teachers = []
-        if special_input == 'y':
-            teachers = input('📝 请输入需要及格评价的老师姓名，多个老师用逗号分隔: ').strip()
-            special_teachers = [t.strip() for t in teachers.split(',') if t.strip()]
+        if args.teachers is not None:
+            teachers_str = args.teachers.strip()
+            special_teachers = [t.strip() for t in teachers_str.split(',') if t.strip()]
             if special_teachers:
                 print(f"🎯 特定及格评价的老师: {', '.join(special_teachers)}\n")
             else:
-                print("⚠️ 未输入有效的教师姓名，继续按选定的评教方法评教所有教师。\n")
+                special_teachers = []
         else:
-            print("✅ 无需进行特定教师的及格评价。\n")
-        
+            special_input = input('🎯 是否有特定老师需要及格评价？（y/n）: ').strip().lower()
+            special_teachers = []
+            if special_input == 'y':
+                teachers = input('📝 请输入需要及格评价的老师姓名，多个老师用逗号分隔: ').strip()
+                special_teachers = [t.strip() for t in teachers.split(',') if t.strip()]
+                if special_teachers:
+                    print(f"🎯 特定及格评价的老师: {', '.join(special_teachers)}\n")
+                else:
+                    print("⚠️ 未输入有效的教师姓名，继续按选定的评教方法评教所有教师。\n")
+            else:
+                print("✅ 无需进行特定教师的及格评价。\n")
+
         auto_evaluate(method, special_teachers)
     else:
         print('❌ 登录失败！请检查用户名和密码是否正确。')

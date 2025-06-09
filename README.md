@@ -18,6 +18,8 @@
 ```
 pip install -r requirements.txt
 python main.py
+# 或者直接传入命令行参数
+python main.py -u your_username -p your_password -m good -t 张三,李四
 ```
 
 ## 控制台输出示例
