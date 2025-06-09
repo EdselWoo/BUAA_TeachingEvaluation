@@ -82,10 +82,12 @@ def get_course_list(qid):
         print(str(e))
         return []
 
-def evaluate_single_course(cinfo, method, special_teachers):
+def evaluate_single_course(cinfo, method, pass_teachers, worst_teachers):
     try:
         teacher_name = cinfo.get("pjrxm", "未知老师")
-        if teacher_name in special_teachers:
+        if teacher_name in worst_teachers:
+            current_method = 'worst'
+        elif teacher_name in pass_teachers:
             current_method = 'worst_passing'
         else:
             current_method = method
@@ -113,7 +115,9 @@ def evaluate_single_course(cinfo, method, special_teachers):
         submit_response = session.post(submit_url, json=evaluate_result)
         submit_response.raise_for_status()
         if submit_response.json().get('msg') == '成功':
-            if teacher_name in special_teachers:
+            if teacher_name in worst_teachers:
+                print(f"✅ 成功评教（最差）课程: {cinfo['kcmc']} - 老师: {teacher_name}")
+            elif teacher_name in pass_teachers:
                 print(f"✅ 成功评教（及格分）课程: {cinfo['kcmc']} - 老师: {teacher_name}")
             else:
                 print(f"✅ 成功评教课程: {cinfo['kcmc']} - 老师: {teacher_name}")
@@ -125,7 +129,7 @@ def evaluate_single_course(cinfo, method, special_teachers):
         print(str(e))
         sys.exit(1)
 
-def auto_evaluate(method, special_teachers, delay=1.0):
+def auto_evaluate(method, pass_teachers, worst_teachers, delay=1.0):
     task = get_latest_task()
     if task is None:
         print('⚠️ 当前没有可评教的任务。')
@@ -137,17 +141,30 @@ def auto_evaluate(method, special_teachers, delay=1.0):
         return
     
     # 首先评教特定教师
-    if special_teachers:
+    if worst_teachers:
+        print("\n💢 开始对特定教师进行最差评价...")
+        for q in q_list:
+            c_list = get_course_list(q['wjid'])
+            for c in c_list:
+                teacher_name = c.get("pjrxm", "未知老师")
+                if teacher_name in worst_teachers:
+                    if c['ypjcs'] == c['xypjcs']:
+                        continue
+                    print(f"🔹 评教课程: {c['kcmc']} - 老师: {teacher_name} (最差评价)")
+                    evaluate_single_course(c, 'worst', pass_teachers, worst_teachers)
+                    time.sleep(delay)
+
+    if pass_teachers:
         print("\n🎯 开始对特定教师进行及格评价...")
         for q in q_list:
             c_list = get_course_list(q['wjid'])
             for c in c_list:
                 teacher_name = c.get("pjrxm", "未知老师")
-                if teacher_name in special_teachers:
+                if teacher_name in pass_teachers:
                     if c['ypjcs'] == c['xypjcs']:
                         continue
                     print(f"🔹 评教课程: {c['kcmc']} - 老师: {teacher_name} (及格评价)")
-                    evaluate_single_course(c, 'worst_passing', special_teachers)
+                    evaluate_single_course(c, 'worst_passing', pass_teachers, worst_teachers)
                     time.sleep(delay)
     
     # 然后评教其他教师
@@ -156,12 +173,12 @@ def auto_evaluate(method, special_teachers, delay=1.0):
         c_list = get_course_list(q['wjid'])
         for c in c_list:
             teacher_name = c.get("pjrxm", "未知老师")
-            if teacher_name in special_teachers:
+            if teacher_name in pass_teachers or teacher_name in worst_teachers:
                 continue  # 已经评教过
             if c['ypjcs'] == c['xypjcs']:
                 continue
             print(f"🔸 评教课程: {c['kcmc']} - 老师: {teacher_name} ({method_to_emoji(method)} {method_to_text(method)})")
-            evaluate_single_course(c, method, special_teachers)
+            evaluate_single_course(c, method, pass_teachers, worst_teachers)
             time.sleep(delay)
     print('\n🏁 评教任务完成！ 如果满足了你的需求，欢迎点个star⭐')
 
@@ -169,14 +186,16 @@ def method_to_text(method):
     return {
         'good': '最佳评价',
         'random': '随机评价',
-        'worst_passing': '最差及格评价'
+        'worst_passing': '最差及格评价',
+        'worst': '最差评价'
     }.get(method, '未知评价方法')
 
 def method_to_emoji(method):
     return {
         'good': '🌟',
         'random': '🎲',
-        'worst_passing': '⚖️'
+        'worst_passing': '⚖️',
+        'worst': '❌'
     }.get(method, '❓')
 
 def main(delay):
@@ -199,19 +218,31 @@ def main(delay):
             method = 'good'
         print(f'\n您选择的评教方法: {method_to_emoji(method)} {method_to_text(method)}\n')
         
-        special_input = input('🎯 是否有特定老师需要及格评价？（y/n）: ').strip().lower()
-        special_teachers = []
-        if special_input == 'y':
+        pass_input = input('🎯 是否有特定老师需要及格评价？（y/n）: ').strip().lower()
+        pass_teachers = []
+        if pass_input == 'y':
             teachers = input('📝 请输入需要及格评价的老师姓名，多个老师用逗号分隔: ').strip()
-            special_teachers = [t.strip() for t in teachers.split(',') if t.strip()]
-            if special_teachers:
-                print(f"🎯 特定及格评价的老师: {', '.join(special_teachers)}\n")
+            pass_teachers = [t.strip() for t in teachers.split(',') if t.strip()]
+            if pass_teachers:
+                print(f"🎯 特定及格评价的老师: {', '.join(pass_teachers)}\n")
             else:
                 print("⚠️ 未输入有效的教师姓名，继续按选定的评教方法评教所有教师。\n")
         else:
             print("✅ 无需进行特定教师的及格评价。\n")
-        
-        auto_evaluate(method, special_teachers, delay)
+
+        worst_input = input('💢 是否有特定老师需要最差评价？（y/n）: ').strip().lower()
+        worst_teachers = []
+        if worst_input == 'y':
+            teachers = input('📝 请输入需要最差评价的老师姓名，多个老师用逗号分隔: ').strip()
+            worst_teachers = [t.strip() for t in teachers.split(',') if t.strip()]
+            if worst_teachers:
+                print(f"💢 特定最差评价的老师: {', '.join(worst_teachers)}\n")
+            else:
+                print("⚠️ 未输入有效的教师姓名，继续按选定的评教方法评教所有教师。\n")
+        else:
+            print("✅ 无需进行特定教师的最差评价。\n")
+
+        auto_evaluate(method, pass_teachers, worst_teachers, delay)
     else:
         print('❌ 登录失败！请检查用户名和密码是否正确。')
         sys.exit(1)
