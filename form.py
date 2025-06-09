@@ -25,9 +25,13 @@ def fill_form(form_info, method='good'):
         choice_answer = gen_random_answer(choice_list)
     elif method == 'worst_passing':
         choice_answer = gen_worst_passing_answer(choice_list)
+    elif method == 'worst':
+        choice_answer = gen_worst_answer(choice_list)
     else:
         raise ValueError(f"未知的方法 {method}")
-    enforce_rules(choice_answer, choice_list)
+
+    if method != 'worst':
+        enforce_rules(choice_answer, choice_list)
     total_score = int(sum(q.pts for q in choice_answer if q))
     answer_list = []
     for i in range(len(choice_list)):
@@ -135,6 +139,15 @@ def gen_worst_passing_answer(choice_list):
     for q in choice_list:
         if q.options:
             ret.append(q.options[2] if len(q.options) >=3 else q.options[-1])
+        else:
+            ret.append(None)
+    return ret
+
+def gen_worst_answer(choice_list):
+    ret = []
+    for q in choice_list:
+        if q.options:
+            ret.append(q.options[-1])
         else:
             ret.append(None)
     return ret
