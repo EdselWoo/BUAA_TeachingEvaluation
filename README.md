@@ -18,7 +18,14 @@
 
 ```
 pip install -r requirements.txt
-python main.py
+python main.py [--delay 间隔秒数]
+```
+
+可选参数 `--delay` 用于控制每门课程评教之间的等待时间，单位为秒，默认为 `1.0`。若
+希望加快评教速度，如每半秒评教一次，可以使用：
+
+```
+python main.py --delay 0.5
 ```
 
 ## 控制台输出示例
