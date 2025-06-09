@@ -1,5 +1,6 @@
 import random
 from dataclasses import dataclass
+from typing import Any, Dict, List, Optional
 
 @dataclass
 class Option:
@@ -14,7 +15,18 @@ class Question:
     id: str
     options: list
 
-def fill_form(form_info, method='good'):
+def fill_form(form_info: Dict[str, Any], method: str = 'good') -> Dict[str, Any]:
+    """中文: 根据评教数据生成提交表单。
+
+    English: Create submission payload from questionnaire information.
+
+    Args:
+        form_info (Dict[str, Any]): 问卷和题目信息 / Raw form data.
+        method (str): 评教策略，默认为 'good' / Strategy for answering.
+
+    Returns:
+        Dict[str, Any]: 用于提交的表单数据 / Final payload for submission.
+    """
     basic_info = form_info['pjxtPjjgPjjgckb'][1]
     question_list = get_question_list(form_info)
     choice_list = [q for q in question_list if q.isChoice]
@@ -95,7 +107,17 @@ def fill_form(form_info, method='good'):
     }
     return ret
 
-def get_question_list(form_info):
+def get_question_list(form_info: Dict[str, Any]) -> List[Question]:
+    """中文: 从原始数据中解析出所有题目。
+
+    English: Parse question list from raw form information.
+
+    Args:
+        form_info (Dict[str, Any]): 问卷数据 / Raw form data.
+
+    Returns:
+        List[Question]: 解析后的题目列表 / Parsed questions.
+    """
     ret = []
     for entry in form_info['pjxtWjWjbReturnEntity']['wjzblist'][0]['tklist']:
         q = Question(
@@ -114,13 +136,33 @@ def get_question_list(form_info):
         ret.append(q)
     return ret
 
-def gen_good_answer(choice_list):
+def gen_good_answer(choice_list: List[Question]) -> List[Optional[Option]]:
+    """中文: 为每个选择题生成最高分答案。
+
+    English: Generate the best-scoring answer for each choice question.
+
+    Args:
+        choice_list (List[Question]): 选择题列表 / Choice questions.
+
+    Returns:
+        List[Optional[Option]]: 每题选择的选项 / Selected options.
+    """
     ret = []
     for q in choice_list:
         ret.append(q.options[0] if q.options else None)
     return ret
 
-def gen_random_answer(choice_list):
+def gen_random_answer(choice_list: List[Question]) -> List[Optional[Option]]:
+    """中文: 随机生成选择题答案。
+
+    English: Randomly select an answer for each choice question.
+
+    Args:
+        choice_list (List[Question]): 选择题列表 / Choice questions.
+
+    Returns:
+        List[Optional[Option]]: 随机选择的选项 / Randomly chosen options.
+    """
     ret = []
     for q in choice_list:
         if q.options:
@@ -130,7 +172,17 @@ def gen_random_answer(choice_list):
             ret.append(None)
     return ret
 
-def gen_worst_passing_answer(choice_list):
+def gen_worst_passing_answer(choice_list: List[Question]) -> List[Optional[Option]]:
+    """中文: 生成仍保证及格的最低分答案。
+
+    English: Generate the lowest passing answers for each choice question.
+
+    Args:
+        choice_list (List[Question]): 选择题列表 / Choice questions.
+
+    Returns:
+        List[Optional[Option]]: 选择的选项 / Selected options ensuring pass.
+    """
     ret = []
     for q in choice_list:
         if q.options:
@@ -139,7 +191,15 @@ def gen_worst_passing_answer(choice_list):
             ret.append(None)
     return ret
 
-def enforce_rules(choice_answer, choice_list):
+def enforce_rules(choice_answer: List[Optional[Option]], choice_list: List[Question]) -> None:
+    """中文: 对生成的答案应用限制规则。
+
+    English: Enforce rules to adjust generated answers.
+
+    Args:
+        choice_answer (List[Optional[Option]]): 已选择的答案列表 / Generated answers.
+        choice_list (List[Question]): 所有选择题 / Choice questions.
+    """
     # 规则1：不能全选同一个选项
     selected_contents = [option.content for option in choice_answer if option]
     if len(set(selected_contents)) == 1:

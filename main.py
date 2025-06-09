@@ -5,13 +5,21 @@ from getpass import getpass
 from urllib.parse import quote
 from form import fill_form
 import sys
+from typing import Dict, List, Optional, Tuple
 
 session = requests.Session()
 
 PJXT_URL = "https://spoc.buaa.edu.cn/pjxt/"
 LOGIN_URL = f'https://sso.buaa.edu.cn/login?service={quote(PJXT_URL, "utf-8")}cas'
 
-def get_token():
+def get_token() -> str:
+    """中文: 获取登录令牌。
+
+    English: Retrieve login token from the SSO page.
+
+    Returns:
+        str: 登录会话令牌 / The login token.
+    """
     try:
         response = session.get(LOGIN_URL)
         response.raise_for_status()
@@ -22,7 +30,18 @@ def get_token():
         print('🔴 获取登录令牌失败，请检查网络连接或登录页面结构。')
         sys.exit(1)
 
-def login(username, password):
+def login(username: str, password: str) -> bool:
+    """中文: 使用用户名和密码登录评教系统。
+
+    English: Login to the evaluation system with the given credentials.
+
+    Args:
+        username (str): 用户名 / The username.
+        password (str): 密码 / The password.
+
+    Returns:
+        bool: 登录是否成功 / ``True`` if login succeeds.
+    """
     try:
         form = {
             'username': username,
@@ -41,7 +60,16 @@ def login(username, password):
     except Exception:
         return False
 
-def get_latest_task():
+
+
+def get_latest_task() -> Optional[Tuple[str, str]]:
+    """中文: 获取最新的评教任务。
+
+    English: Fetch the most recent evaluation task information.
+
+    Returns:
+        Optional[Tuple[str, str]]: 如果存在则返回 ``(rwid, rwmc)``，否则 ``None``。
+    """
     try:
         task_list_url = f'{PJXT_URL}personnelEvaluation/listObtainPersonnelEvaluationTasks?pageNum=1&pageSize=1'
         response = session.get(task_list_url)
@@ -54,7 +82,17 @@ def get_latest_task():
         print('🔴 获取最新任务失败，请检查网络连接或API是否变更。')
         sys.exit(1)
 
-def get_questionnaire_list(task_id):
+def get_questionnaire_list(task_id: str) -> List[Dict[str, str]]:
+    """中文: 获取指定任务的问卷列表。
+
+    English: Get questionnaire list for the given task ID.
+
+    Args:
+        task_id (str): 任务 ID / The task identifier.
+
+    Returns:
+        List[Dict[str, str]]: 问卷信息列表 / List of questionnaire entries.
+    """
     try:
         list_url = f'{PJXT_URL}evaluationMethodSix/getQuestionnaireListToTask?rwid={task_id}&pageNum=1&pageSize=999'
         response = session.get(list_url)
@@ -64,7 +102,14 @@ def get_questionnaire_list(task_id):
         print('🔴 获取问卷列表失败，请检查网络连接或API是否变更。')
         return []
 
-def set_evaluating_method(qinfo):
+def set_evaluating_method(qinfo: Dict[str, str]) -> None:
+    """中文: 设置问卷的评教方式。
+
+    English: Set the evaluating method for a questionnaire.
+
+    Args:
+        qinfo (Dict[str, str]): 问卷信息 / Questionnaire info.
+    """
     try:
         if qinfo['msid'] in ['1', '2']:
             url = f'{PJXT_URL}evaluationMethodSix/reviseQuestionnairePattern'
@@ -83,7 +128,17 @@ def set_evaluating_method(qinfo):
     except Exception:
         print(f"🔴 设置评教方式失败: {qinfo['wjmc']}")
 
-def get_course_list(qid):
+def get_course_list(qid: str) -> List[Dict[str, str]]:
+    """中文: 获取问卷对应的课程列表。
+
+    English: Retrieve courses under the specified questionnaire ID.
+
+    Args:
+        qid (str): 问卷ID / Questionnaire ID.
+
+    Returns:
+        List[Dict[str, str]]: 课程列表 / List of courses.
+    """
     try:
         course_list_url = f'{PJXT_URL}evaluationMethodSix/getRequiredReviewsData?sfyp=0&wjid={qid}&pageNum=1&pageSize=999'
         response = session.get(course_list_url)
@@ -94,7 +149,20 @@ def get_course_list(qid):
         print(f"🔴 获取课程列表失败: {qid}")
         return []
 
-def evaluate_single_course(cinfo, method, special_teachers):
+def evaluate_single_course(
+    cinfo: Dict[str, str],
+    method: str,
+    special_teachers: List[str],
+) -> None:
+    """中文: 评教单门课程。
+
+    English: Evaluate a single course.
+
+    Args:
+        cinfo (Dict[str, str]): 课程信息 / Course info.
+        method (str): 默认评教方式 / Evaluation method.
+        special_teachers (List[str]): 需要及格评价的教师名单。
+    """
     try:
         teacher_name = cinfo.get("pjrxm", "未知老师")
         if teacher_name in special_teachers:
@@ -136,7 +204,15 @@ def evaluate_single_course(cinfo, method, special_teachers):
         print(f"🔴 评教过程中出错: {cinfo['kcmc']} - 老师: {teacher_name}")
         sys.exit(1)
 
-def auto_evaluate(method, special_teachers):
+def auto_evaluate(method: str, special_teachers: List[str]) -> None:
+    """中文: 根据选定方式自动评教所有课程。
+
+    English: Automatically evaluate courses using the chosen method.
+
+    Args:
+        method (str): 评教方式 / Evaluation method.
+        special_teachers (List[str]): 指定进行及格评价的教师列表。
+    """
     task = get_latest_task()
     if task is None:
         print('⚠️ 当前没有可评教的任务。')
@@ -176,21 +252,45 @@ def auto_evaluate(method, special_teachers):
             time.sleep(1)
     print('\n🏁 评教任务完成！ 如果满足了你的需求，欢迎点个star⭐')
 
-def method_to_text(method):
+def method_to_text(method: str) -> str:
+    """中文: 将评教方式转为文字描述。
+
+    English: Convert evaluation method to human readable text.
+
+    Args:
+        method (str): 评教方式 / Evaluation method.
+
+    Returns:
+        str: 对应的文字描述 / Text description.
+    """
     return {
         'good': '最佳评价',
         'random': '随机评价',
         'worst_passing': '最差及格评价'
     }.get(method, '未知评价方法')
 
-def method_to_emoji(method):
+def method_to_emoji(method: str) -> str:
+    """中文: 将评教方式转为表情符号。
+
+    English: Convert evaluation method to an emoji symbol.
+
+    Args:
+        method (str): 评教方式 / Evaluation method.
+
+    Returns:
+        str: 对应的表情 / Emoji representation.
+    """
     return {
         'good': '🌟',
         'random': '🎲',
         'worst_passing': '⚖️'
     }.get(method, '❓')
 
-def main():
+def main() -> None:
+    """中文: 程序入口，交互式完成登录并执行评教。
+
+    English: Program entry point handling login and evaluation process.
+    """
     print("🔐 欢迎使用 BUAA 综合评教自动化系统！\n")
     username = input('请输入用户名: ')
     password = getpass('请输入密码: ')
