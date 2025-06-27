@@ -7,6 +7,17 @@ from form import fill_form
 import sys
 import argparse
 
+
+def normalize_name(name: str) -> str:
+    """Normalize teacher names for robust matching."""
+    if not isinstance(name, str):
+        return name
+    cleaned = name.replace("\xa0", "").replace(" ", "").strip()
+    for suffix in ("老师", "教授"):
+        if cleaned.endswith(suffix):
+            cleaned = cleaned[: -len(suffix)]
+    return cleaned
+
 session = requests.Session()
 
 PJXT_URL = "https://spoc.buaa.edu.cn/pjxt/"
@@ -85,9 +96,10 @@ def get_course_list(qid):
 def evaluate_single_course(cinfo, method, pass_teachers, worst_teachers):
     try:
         teacher_name = cinfo.get("pjrxm", "未知老师")
-        if teacher_name in worst_teachers:
+        normalized = normalize_name(teacher_name)
+        if normalized in worst_teachers:
             current_method = 'worst'
-        elif teacher_name in pass_teachers:
+        elif normalized in pass_teachers:
             current_method = 'worst_passing'
         else:
             current_method = method
@@ -115,9 +127,9 @@ def evaluate_single_course(cinfo, method, pass_teachers, worst_teachers):
         submit_response = session.post(submit_url, json=evaluate_result)
         submit_response.raise_for_status()
         if submit_response.json().get('msg') == '成功':
-            if teacher_name in worst_teachers:
+            if normalized in worst_teachers:
                 print(f"✅ 成功评教（最差）课程: {cinfo['kcmc']} - 老师: {teacher_name}")
-            elif teacher_name in pass_teachers:
+            elif normalized in pass_teachers:
                 print(f"✅ 成功评教（及格分）课程: {cinfo['kcmc']} - 老师: {teacher_name}")
             else:
                 print(f"✅ 成功评教课程: {cinfo['kcmc']} - 老师: {teacher_name}")
@@ -130,6 +142,9 @@ def evaluate_single_course(cinfo, method, pass_teachers, worst_teachers):
         sys.exit(1)
 
 def auto_evaluate(method, pass_teachers, worst_teachers, delay=1.0):
+    pass_teachers = {normalize_name(t) for t in pass_teachers}
+    worst_teachers = {normalize_name(t) for t in worst_teachers}
+
     task = get_latest_task()
     if task is None:
         print('⚠️ 当前没有可评教的任务。')
@@ -147,7 +162,7 @@ def auto_evaluate(method, pass_teachers, worst_teachers, delay=1.0):
             c_list = get_course_list(q['wjid'])
             for c in c_list:
                 teacher_name = c.get("pjrxm", "未知老师")
-                if teacher_name in worst_teachers:
+                if normalize_name(teacher_name) in worst_teachers:
                     if c['ypjcs'] == c['xypjcs']:
                         continue
                     print(f"🔹 评教课程: {c['kcmc']} - 老师: {teacher_name} (最差评价)")
@@ -160,7 +175,7 @@ def auto_evaluate(method, pass_teachers, worst_teachers, delay=1.0):
             c_list = get_course_list(q['wjid'])
             for c in c_list:
                 teacher_name = c.get("pjrxm", "未知老师")
-                if teacher_name in pass_teachers:
+                if normalize_name(teacher_name) in pass_teachers:
                     if c['ypjcs'] == c['xypjcs']:
                         continue
                     print(f"🔹 评教课程: {c['kcmc']} - 老师: {teacher_name} (及格评价)")
@@ -173,7 +188,8 @@ def auto_evaluate(method, pass_teachers, worst_teachers, delay=1.0):
         c_list = get_course_list(q['wjid'])
         for c in c_list:
             teacher_name = c.get("pjrxm", "未知老师")
-            if teacher_name in pass_teachers or teacher_name in worst_teachers:
+            normalized = normalize_name(teacher_name)
+            if normalized in pass_teachers or normalized in worst_teachers:
                 continue  # 已经评教过
             if c['ypjcs'] == c['xypjcs']:
                 continue
@@ -222,7 +238,7 @@ def main(delay):
         pass_teachers = []
         if pass_input == 'y':
             teachers = input('📝 请输入需要及格评价的老师姓名，多个老师用逗号分隔: ').strip()
-            pass_teachers = [t.strip() for t in teachers.split(',') if t.strip()]
+            pass_teachers = [normalize_name(t) for t in teachers.split(',') if t.strip()]
             if pass_teachers:
                 print(f"🎯 特定及格评价的老师: {', '.join(pass_teachers)}\n")
             else:
@@ -234,7 +250,7 @@ def main(delay):
         worst_teachers = []
         if worst_input == 'y':
             teachers = input('📝 请输入需要最差评价的老师姓名，多个老师用逗号分隔: ').strip()
-            worst_teachers = [t.strip() for t in teachers.split(',') if t.strip()]
+            worst_teachers = [normalize_name(t) for t in teachers.split(',') if t.strip()]
             if worst_teachers:
                 print(f"💢 特定最差评价的老师: {', '.join(worst_teachers)}\n")
             else:
@@ -242,7 +258,7 @@ def main(delay):
         else:
             print("✅ 无需进行特定教师的最差评价。\n")
 
-        auto_evaluate(method, pass_teachers, worst_teachers, delay)
+        auto_evaluate(method, set(pass_teachers), set(worst_teachers), delay)
     else:
         print('❌ 登录失败！请检查用户名和密码是否正确。')
         sys.exit(1)
