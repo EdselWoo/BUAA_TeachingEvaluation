@@ -163,10 +163,15 @@ def enforce_rules(choice_answer, choice_list):
                         choice_answer[i] = opt
                         break
                 break
-    # 规则2：前五道题中至少有一道选择“合格以上”（中等、良好、优秀）
-    count_passing = sum(1 for option in choice_answer[:5] if option and option.content in ['中等', '良好', '优秀'])
+    # 规则2：前五道题（或题目不足五道时的全部题目）中至少有一道选择“合格以上”（中等、良好、优秀）
+    check_count = min(5, len(choice_answer))
+    count_passing = sum(
+        1
+        for option in choice_answer[:check_count]
+        if option and option.content in ['中等', '良好', '优秀']
+    )
     if count_passing == 0:
-        for i in range(5):
+        for i in range(check_count):
             if choice_answer[i]:
                 for opt in choice_list[i].options:
                     if opt.content == '中等':
